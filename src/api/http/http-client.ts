@@ -228,7 +228,12 @@ export class HttpClient {
    * Download binary content (for attachments)
    */
   async downloadBinary(url: string): Promise<ArrayBuffer> {
-    // Validate URL belongs to the configured domain to prevent SSRF
+    // Validate URL belongs to the configured domain to prevent SSRF.
+    // Note: this check compares hostnames at request time and does not
+    // protect against DNS rebinding attacks, where a hostname resolves
+    // differently between this check and the actual fetch. This is an
+    // accepted limitation — attachment URLs come from the TP API response,
+    // not from untrusted user input, so the practical risk is negligible.
     try {
       const parsed = new URL(url);
       const baseUrlParsed = new URL(this.baseUrl);
