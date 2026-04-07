@@ -2,12 +2,12 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { TPService } from '../../api/client/tp.service.js';
 import { EntityRegistry } from '../../core/entity-registry.js';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import { logger } from '../../utils/logger.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Input schema for inspect object tool
 export const inspectObjectSchema = z.object({
@@ -293,7 +293,8 @@ export class InspectObjectTool {
   private async searchDocumentation(searchTerm: string): Promise<string> {
     try {
       const docsPath = path.resolve(__dirname, '../../../resources/target-process-docs');
-      const { stdout } = await execAsync(`cd ${docsPath} && ./search-docs.sh "${searchTerm}"`);
+      const scriptPath = path.join(docsPath, 'search-docs.sh');
+      const { stdout } = await execFileAsync(scriptPath, [searchTerm], { cwd: docsPath });
       
       // Extract relevant information from the search results
       return this.extractDocumentationContext(stdout);
