@@ -44,14 +44,38 @@ export class DeleteCommentOperation implements SemanticOperation<DeleteCommentPa
   async execute(context: ExecutionContext, params: DeleteCommentParams): Promise<OperationResult> {
     try {
       const validatedParams = deleteCommentSchema.parse(params);
-      
-      // Get comment context for user experience
-      const commentContext = await this.getCommentContext(validatedParams.commentId);
+
+      const managerRoles = ['project-manager', 'product-manager', 'product-owner'];
+      const isManager = managerRoles.includes(context.user.role);
+
+      // Get comment context for authorization and user experience.
+      // Fetch errors propagate for non-managers; managers proceed regardless.
+      let commentContext: any = null;
+      try {
+        commentContext = await this.getCommentContext(validatedParams.commentId);
+      } catch (fetchError) {
+        if (!isManager) {
+          return this.buildErrorResponse(fetchError);
+        }
+        // managers fall through with null context
+      }
+
+      // Fail closed: deny non-managers when ownership cannot be verified
+      if (!isManager && (!commentContext || !commentContext.User)) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `## ❌ Unauthorized\n\nUnable to verify ownership of comment #${validatedParams.commentId}. Only managers can delete comments when ownership cannot be determined.`
+          }],
+          suggestions: ['Verify the comment ID is correct', 'Ask a project manager to delete this comment']
+        };
+      }
+
       const warningMessage = this.buildWarningMessage(commentContext, context.user.id);
-      
+
       // Perform deletion
       const deleteResult = await this.service.deleteComment(validatedParams.commentId);
-      
+
       if (deleteResult) {
         return this.buildSuccessResponse(validatedParams.commentId, commentContext, warningMessage, context);
       } else {
@@ -64,17 +88,13 @@ export class DeleteCommentOperation implements SemanticOperation<DeleteCommentPa
   }
 
   private async getCommentContext(commentId: number): Promise<any> {
-    try {
-      const comments = await this.service.searchEntities(
-        'Comment',
-        `Id = ${commentId}`,
-        ['Id', 'Description', 'User', 'CreateDate', 'IsPrivate', 'General'],
-        1
-      );
-      return (comments && comments.length > 0) ? comments[0] : null;
-    } catch {
-      return null; // Continue with deletion even if context fetch fails
-    }
+    const comments = await this.service.searchEntities(
+      'Comment',
+      `Id = ${commentId}`,
+      ['Id', 'Description', 'User', 'CreateDate', 'IsPrivate', 'General'],
+      1
+    );
+    return (comments && comments.length > 0) ? comments[0] : null;
   }
 
   private buildWarningMessage(commentContext: any, userId: number): string {

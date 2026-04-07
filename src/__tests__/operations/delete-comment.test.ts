@@ -190,7 +190,7 @@ describe('DeleteCommentOperation', () => {
       expect(result.content[0].text).toContain('Failed to delete comment');
     });
 
-    it('should continue deletion even if comment context fetch fails', async () => {
+    it('should deny deletion for non-manager when comment context fetch fails', async () => {
       mockService.searchEntities.mockRejectedValue(new Error('Context fetch failed'));
       mockService.deleteComment.mockResolvedValue(true);
 
@@ -200,12 +200,12 @@ describe('DeleteCommentOperation', () => {
 
       const result = await operation.execute(mockContext, params);
 
-      expect(result.content[0].type).toBe('text');
-      expect(result.content[0].text).toContain('Successfully deleted comment #207218');
-      expect(mockService.deleteComment).toHaveBeenCalledWith(207218);
+      expect(result.content[0].type).toBe('error');
+      expect(result.content[0].text).toContain('Failed to delete comment');
+      expect(mockService.deleteComment).not.toHaveBeenCalled();
     });
 
-    it('should handle comment not found in context', async () => {
+    it('should deny deletion for non-manager when comment is not found', async () => {
       mockService.searchEntities.mockResolvedValue([]);
       mockService.deleteComment.mockResolvedValue(true);
 
@@ -216,8 +216,51 @@ describe('DeleteCommentOperation', () => {
       const result = await operation.execute(mockContext, params);
 
       expect(result.content[0].type).toBe('text');
+      expect(result.content[0].text).toContain('Unauthorized');
+      expect(mockService.deleteComment).not.toHaveBeenCalled();
+    });
+
+    it('should deny deletion for non-manager when comment has no User', async () => {
+      const mockCommentNoUser = {
+        Id: 207218,
+        Description: 'Comment without user',
+        CreateDate: '/Date(1234567890000)/',
+        IsPrivate: false,
+        General: { Id: 54356, EntityType: { Name: 'Task' } }
+      };
+
+      mockService.searchEntities.mockResolvedValue([mockCommentNoUser]);
+      mockService.deleteComment.mockResolvedValue(true);
+
+      const params = {
+        commentId: 207218
+      };
+
+      const result = await operation.execute(mockContext, params);
+
+      expect(result.content[0].type).toBe('text');
+      expect(result.content[0].text).toContain('Unauthorized');
+      expect(mockService.deleteComment).not.toHaveBeenCalled();
+    });
+
+    it('should allow manager to delete when comment context is unavailable', async () => {
+      const managerContext = {
+        ...mockContext,
+        user: { ...mockContext.user, role: 'project-manager' }
+      };
+
+      mockService.searchEntities.mockRejectedValue(new Error('Context fetch failed'));
+      mockService.deleteComment.mockResolvedValue(true);
+
+      const params = {
+        commentId: 207218
+      };
+
+      const result = await operation.execute(managerContext, params);
+
+      expect(result.content[0].type).toBe('text');
       expect(result.content[0].text).toContain('Successfully deleted comment #207218');
-      expect(result.content[0].text).toContain('Comment #207218');
+      expect(mockService.deleteComment).toHaveBeenCalledWith(207218);
     });
 
     it('should clean HTML from comment description in context', async () => {
