@@ -28,6 +28,10 @@ export class QueryBuilder {
     this.authConfig = authConfig;
   }
 
+  getAuthConfig(): AuthConfig {
+    return this.authConfig;
+  }
+
   /**
    * Set where clause with validation
    */
@@ -114,7 +118,7 @@ export class QueryBuilder {
       }
     }
 
-    // Add authentication if using API key
+    // API key auth uses query parameter per TP API requirements
     if (this.authConfig.type === 'apikey') {
       params.append('access_token', this.authConfig.token);
     }
@@ -166,9 +170,9 @@ export class QueryBuilder {
       });
     }
 
-    // Add auth token if needed
+    // API key auth uses query parameter per TP API requirements
     if (this.authConfig.type === 'apikey') {
-      parts.push(`access_token=${this.authConfig.token}`);
+      parts.push(`access_token=${encodeURIComponent(this.authConfig.token)}`);
     }
 
     return parts.join('&');

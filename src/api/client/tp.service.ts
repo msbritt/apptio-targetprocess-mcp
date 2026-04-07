@@ -74,6 +74,7 @@ export class TPService {
       executeWithRetry: this.httpClient.executeWithRetry.bind(this.httpClient),
       handleApiResponse: this.httpClient.handleApiResponse.bind(this.httpClient),
       getHeaders: () => this.getHeaders(),
+      getAuthQueryString: () => this.getAuthQueryString(),
       baseUrl: this.httpClient.getBaseUrl(),
       entityValidator: this.entityValidator
     });
@@ -478,6 +479,16 @@ export class TPService {
     }
 
     return headers;
+  }
+
+  /**
+   * Get authentication query string for API key auth (TP API requires access_token in URL)
+   */
+  private getAuthQueryString(): string {
+    if (this.httpClient.getAuthType() === 'apikey') {
+      return `?access_token=${encodeURIComponent(this.queryBuilder.getAuthConfig().token)}`;
+    }
+    return '';
   }
 
   /**
