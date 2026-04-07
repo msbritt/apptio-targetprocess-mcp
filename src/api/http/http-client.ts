@@ -202,6 +202,7 @@ export class HttpClient {
     };
 
     // Add authentication header for basic auth
+    // Note: API key auth uses query parameter (access_token) per TP API requirements
     if (this.authConfig.type === 'basic') {
       headers['Authorization'] = `Basic ${this.authConfig.token}`;
     }
@@ -227,6 +228,27 @@ export class HttpClient {
    * Download binary content (for attachments)
    */
   async downloadBinary(url: string): Promise<ArrayBuffer> {
+    // Validate URL belongs to the configured domain to prevent SSRF
+    try {
+      const parsed = new URL(url);
+      const baseUrlParsed = new URL(this.baseUrl);
+      if (parsed.hostname !== baseUrlParsed.hostname) {
+        throw new McpError(
+          ErrorCode.InvalidRequest,
+          `Attachment URL hostname "${parsed.hostname}" does not match configured domain "${baseUrlParsed.hostname}"`
+        );
+      }
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new McpError(
+          ErrorCode.InvalidRequest,
+          `Attachment URL must use http or https protocol, got "${parsed.protocol}"`
+        );
+      }
+    } catch (e) {
+      if (e instanceof McpError) throw e;
+      throw new McpError(ErrorCode.InvalidRequest, `Invalid attachment URL: ${url}`);
+    }
+
     return await this.executeWithRetry(async () => {
       const response = await fetch(url, {
         headers: this.buildHeaders()
@@ -241,7 +263,7 @@ export class HttpClient {
       }
 
       return await response.arrayBuffer();
-    }, `download binary from ${url}`);
+    }, `download binary from ${new URL(url).pathname}`);
   }
 
   /**
