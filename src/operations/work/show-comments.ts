@@ -3,6 +3,16 @@ import { TPService } from '../../api/client/tp.service.js';
 import { ExecutionContext, SemanticOperation, OperationResult } from '../../core/interfaces/semantic-operation.interface.js';
 import { logger } from '../../utils/logger.js';
 
+/**
+ * Validate that a string is a safe identifier for use in TP where clauses.
+ */
+function sanitizeIdentifier(value: string): string {
+  if (!/^[A-Za-z][A-Za-z0-9-]*$/.test(value)) {
+    throw new Error(`Invalid identifier: "${value}" contains disallowed characters`);
+  }
+  return value;
+}
+
 export const showCommentsSchema = z.object({
   entityType: z.string().describe('Type of entity to show comments for (Task, Bug, UserStory, etc.)'),
   entityId: z.coerce.number().describe('ID of the entity to show comments for'),
@@ -214,7 +224,7 @@ export class ShowCommentsOperation implements SemanticOperation<ShowCommentsPara
       const [commentTypes, notificationRules] = await Promise.all([
         this.service.searchEntities(
           'CommentType',
-          `EntityType.Name eq '${entityType}'`,
+          `EntityType.Name eq '${sanitizeIdentifier(entityType)}'`,
           ['Name', 'Description'],
           5
         ).catch(() => []),

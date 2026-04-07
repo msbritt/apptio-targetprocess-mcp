@@ -7,6 +7,17 @@ import {
 import { TPService } from '../../api/client/tp.service.js';
 import { logger } from '../../utils/logger.js';
 
+/**
+ * Validate that a string is a safe identifier for use in TP where clauses.
+ * TP entity types and roles are PascalCase/kebab-case words only.
+ */
+function sanitizeIdentifier(value: string): string {
+  if (!/^[A-Za-z][A-Za-z0-9-]*$/.test(value)) {
+    throw new Error(`Invalid identifier: "${value}" contains disallowed characters`);
+  }
+  return value;
+}
+
 export const addCommentSchema = z.object({
   entityType: z.string().describe('Type of entity to comment on (Task, Bug, UserStory, etc.)'),
   entityId: z.coerce.number().describe('ID of the entity to comment on'),
@@ -82,7 +93,7 @@ export class AddCommentOperation implements SemanticOperation<AddCommentParams> 
       // Try to discover comment templates from TP instance
       const discoveredTemplates = await this.service.searchEntities(
         'CommentTemplate',
-        `(EntityType.Name eq '${entityType}' or EntityType eq null) and (Role.Name eq '${role}' or Role eq null)`,
+        `(EntityType.Name eq '${sanitizeIdentifier(entityType)}' or EntityType eq null) and (Role.Name eq '${sanitizeIdentifier(role)}' or Role eq null)`,
         ['Name', 'Description', 'Content', 'Role', 'EntityType'],
         20
       ).catch(() => []);
@@ -204,129 +215,27 @@ export class AddCommentOperation implements SemanticOperation<AddCommentParams> 
    */
   formatContent(content: string, role: string, _entity?: any): string {
     const timestamp = new Date().toISOString().split('T')[0];
-    
-    // Convert basic markdown to HTML for TargetProcess
-    const htmlContent = this.convertMarkdownToHtml(content);
-    
-    switch (role) {
-      case 'developer':
-        return `<div><strong>💻 Developer Update</strong> (${timestamp})</div><div><br/></div><div>${htmlContent}</div>`;
-      
-      case 'tester':
-        return `<div><strong>🧪 QA Update</strong> (${timestamp})</div><div><br/></div><div>${htmlContent}</div>`;
-      
-      case 'project-manager':
-        return `<div><strong>📋 Project Update</strong> (${timestamp})</div><div><br/></div><div>${htmlContent}</div>`;
-      
-      case 'product-manager':
-      case 'product-owner':
-        return `<div><strong>🎯 Product Update</strong> (${timestamp})</div><div><br/></div><div>${htmlContent}</div>`;
-      
-      default:
-        return `<div><strong>📝 Update</strong> (${timestamp})</div><div><br/></div><div>${htmlContent}</div>`;
-    }
+    const prefix = this.getRolePrefix(role, timestamp);
+    return `<!--markdown-->${prefix}\n\n${content}`;
   }
 
   /**
-   * Convert rich markdown to HTML for TargetProcess with enhanced features
+   * Format comment content as plain text (no HTML generation).
+   * TP stores Description as a string; markdown is preserved as-is.
    */
-  private convertMarkdownToHtml(content: string, options?: any): string {
-    let html = content;
-    
-    // Code blocks with syntax highlighting
-    if (options?.codeLanguage) {
-      html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-        const language = lang || options.codeLanguage || 'text';
-        return `<div class="code-block" data-language="${language}"><pre><code>${this.escapeHtml(code.trim())}</code></pre></div>`;
-      });
-    } else {
-      // Simple code blocks
-      html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-    }
-    
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    
-    // User mentions
-    if (options?.mentions?.length > 0) {
-      options.mentions.forEach((user: any) => {
-        const mentionPattern = new RegExp(`@${user.name}|@${user.login}`, 'gi');
-        html = html.replace(mentionPattern, `<span class="mention" data-user-id="${user.id}">@${user.name}</span>`);
-      });
-    }
-    
-    // Links to commits/PRs
-    if (options?.linkedCommit) {
-      html = html.replace(/commit:(\w+)/gi, `<a href="#" class="commit-link" data-commit="${options.linkedCommit}">commit:${options.linkedCommit.substring(0, 7)}</a>`);
-    }
-    if (options?.linkedPR) {
-      html = html.replace(/PR#(\d+)/gi, `<a href="${options.linkedPR}" class="pr-link">PR#$1</a>`);
-    }
-    
-    // Tables (GitHub-flavored markdown)
-    html = html.replace(/\n\|(.+)\|\n\|(:?-+:?\|)+\n((?:\|.+\|\n?)+)/g, (match, header, separator, body) => {
-      const headers = header.split('|').filter(Boolean).map((h: string) => `<th>${h.trim()}</th>`).join('');
-      const rows = body.trim().split('\n').map((row: string) => {
-        const cells = row.split('|').filter(Boolean).map((c: string) => `<td>${c.trim()}</td>`).join('');
-        return `<tr>${cells}</tr>`;
-      }).join('');
-      return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
-    });
-    
-    // Checklists
-    html = html.replace(/^- \[([ x])\] (.+)$/gm, (match, checked, text) => {
-      const isChecked = checked.toLowerCase() === 'x';
-      return `<div class="checklist-item"><input type="checkbox" ${isChecked ? 'checked' : ''} disabled> ${text}</div>`;
-    });
-    
-    // Bold and italic (order matters)
-    html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
-    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    html = html.replace(/_(.+?)_/g, '<em>$1</em>');
-    
-    // Headers
-    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-    
-    // Blockquotes
-    html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
-    
-    // Lists
-    html = html.replace(/^\* (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-    html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>)(?!.*<\/[uo]l>)/s, '<ol>$1</ol>');
-    
-    // Line breaks and paragraphs
-    html = html.replace(/\n\n/g, '</p><p>');
-    html = html.replace(/\n/g, '<br/>');
-    
-    // Wrap in div for TargetProcess
-    html = `<div>${html}</div>`;
-    
-    // Attachments section
+  private formatPlainTextComment(content: string, options?: any): string {
+    let result = content;
+
+    // Append attachments section if present
     if (options?.attachments?.length > 0) {
-      const attachmentHtml = options.attachments.map((att: any) => 
-        `<div class="attachment">📎 ${att.description || att.path}</div>`
-      ).join('');
-      html += `<div class="attachments-section"><hr/><strong>Attachments:</strong>${attachmentHtml}</div>`;
+      const attachmentLines = options.attachments.map((att: any) => {
+        const label = (att.description || att.path || '').replace(/[[\]()]/g, '');
+        return `- ${label}`;
+      }).join('\n');
+      result += `\n\nAttachments:\n${attachmentLines}`;
     }
-    
-    return html;
-  }
-  
-  private escapeHtml(text: string): string {
-    const map: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+
+    return result;
   }
 
   async execute(context: ExecutionContext, params: AddCommentParams): Promise<OperationResult> {
@@ -464,7 +373,7 @@ export class AddCommentOperation implements SemanticOperation<AddCommentParams> 
       // Try to discover comment types
       const commentTypes = await this.service.searchEntities(
         'CommentType',
-        `EntityType.Name eq '${entityType}'`,
+        `EntityType.Name eq '${sanitizeIdentifier(entityType)}'`,
         ['Name', 'Description'],
         10
       ).catch(() => []);
@@ -552,12 +461,12 @@ export class AddCommentOperation implements SemanticOperation<AddCommentParams> 
     const timestamp = new Date().toISOString().split('T')[0];
     const startTime = Date.now();
     
-    // Convert rich markdown to HTML with all features
-    const htmlContent = this.convertMarkdownToHtml(content, options);
-    
+    // Format as plain text — no HTML generation
+    const formattedContent = this.formatPlainTextComment(content, options);
+
     // Add contextual prefix based on entity state and role
     let prefix = this.getRolePrefix(role, timestamp);
-    
+
     // Add workflow context if relevant
     if (entityContext.workflowStage.isBlocked && content.toLowerCase().includes('unblock')) {
       prefix += ' 🚧 Unblocking';
@@ -566,12 +475,12 @@ export class AddCommentOperation implements SemanticOperation<AddCommentParams> 
     } else if (entityContext.timing.isOverdue) {
       prefix += ' ⚠️ Overdue';
     }
-    
+
     // Add performance metric
     const processingTime = Date.now() - startTime;
     logger.debug(`Comment formatting took ${processingTime}ms`);
 
-    return `<div><strong>${prefix}</strong></div><div><br/></div>${htmlContent}`;
+    return `<!--markdown-->${prefix}\n\n${formattedContent}`;
   }
   
   private async resolveMentions(mentions: string[]): Promise<any[]> {
@@ -579,10 +488,11 @@ export class AddCommentOperation implements SemanticOperation<AddCommentParams> 
     
     for (const mention of mentions) {
       try {
-        // Try to find user by name or login
+        // Allowlist: only characters valid in names, logins, and emails
+        const safeMention = mention.replace(/[^A-Za-z0-9 .\-_@]/g, '');
         const users = await this.service.searchEntities(
           'GeneralUser',
-          `(FirstName contains '${mention}') or (LastName contains '${mention}') or (Login eq '${mention}') or (Email eq '${mention}')`,
+          `(FirstName contains '${safeMention}') or (LastName contains '${safeMention}') or (Login eq '${safeMention}') or (Email eq '${safeMention}')`,
           ['FirstName', 'LastName', 'Login', 'Email'],
           5
         );
