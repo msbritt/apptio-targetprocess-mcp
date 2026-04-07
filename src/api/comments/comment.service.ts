@@ -30,6 +30,7 @@ export interface CommentServiceDependencies {
   executeWithRetry: <T>(operation: () => Promise<T>, context: string) => Promise<T>;
   handleApiResponse: <T>(response: Response, context: string) => Promise<T>;
   getHeaders: () => Record<string, string>;
+  getAuthQueryString: () => string;
   baseUrl: string;
   entityValidator: EntityValidator;
 }
@@ -43,6 +44,17 @@ export class CommentService {
 
   constructor(dependencies: CommentServiceDependencies) {
     this.deps = dependencies;
+  }
+
+  /**
+   * Build URL with authentication query string appended
+   */
+  private authUrl(path: string): string {
+    const auth = this.deps.getAuthQueryString();
+    if (!auth) return `${this.deps.baseUrl}/${path}`;
+    const sep = path.includes('?') ? '&' : '?';
+    const qs = auth.startsWith('?') ? auth.slice(1) : auth;
+    return `${this.deps.baseUrl}/${path}${sep}${qs}`;
   }
 
   /**
@@ -61,7 +73,7 @@ export class CommentService {
 
       return await this.deps.executeWithRetry(async () => {
         const endpoint = this.deps.entityValidator.getEndpointForEntityType(validatedType);
-        const response = await fetch(`${this.deps.baseUrl}/${endpoint}/${entityId}/Comments`, {
+        const response = await fetch(this.authUrl(`${endpoint}/${entityId}/Comments`), {
           headers: this.deps.getHeaders()
         });
 
@@ -123,7 +135,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(`${this.deps.baseUrl}/Comments`, {
+        const response = await fetch(this.authUrl('Comments'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -158,7 +170,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(`${this.deps.baseUrl}/Comments/${commentId}`, {
+        const response = await fetch(this.authUrl(`Comments/${commentId}`), {
           method: 'DELETE',
           headers: this.deps.getHeaders()
         });
@@ -200,7 +212,7 @@ export class CommentService {
       };
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(`${this.deps.baseUrl}/Comments/${commentId}`, {
+        const response = await fetch(this.authUrl(`Comments/${commentId}`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -235,7 +247,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(`${this.deps.baseUrl}/Comments/${commentId}`, {
+        const response = await fetch(this.authUrl(`Comments/${commentId}`), {
           headers: this.deps.getHeaders()
         });
 
@@ -265,7 +277,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(`${this.deps.baseUrl}/Comments/${parentCommentId}/Replies`, {
+        const response = await fetch(this.authUrl(`Comments/${parentCommentId}/Replies`), {
           headers: this.deps.getHeaders()
         });
 
