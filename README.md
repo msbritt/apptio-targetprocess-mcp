@@ -18,7 +18,7 @@ Native integration with Anthropic's Claude Desktop app.
   "mcpServers": {
     "targetprocess": {
       "command": "npx",
-      "args": ["-y", "https://github.com/aaronsb/apptio-target-process-mcp.git"],
+      "args": ["-y", "https://github.com/msbritt/apptio-targetprocess-mcp.git"],
       "env": {
         "TP_DOMAIN": "your-domain.tpondemand.com",
         "TP_API_KEY": "your-api-key"
@@ -52,7 +52,7 @@ Run in an isolated container environment.
 docker run -i --rm \
   -e TP_DOMAIN=your-domain.tpondemand.com \
   -e TP_API_KEY=your-api-key \
-  ghcr.io/aaronsb/apptio-target-process-mcp
+  ghcr.io/msbritt/apptio-targetprocess-mcp
 
 # With role-specific tools and strict mode (recommended for MCP clients)
 docker run -i --rm \
@@ -63,7 +63,7 @@ docker run -i --rm \
   -e TP_USER_ID=your-user-id \
   -e TP_USER_EMAIL=your-email \
   -e MCP_STRICT_MODE=true \
-  ghcr.io/aaronsb/apptio-target-process-mcp
+  ghcr.io/msbritt/apptio-targetprocess-mcp
 ```
 
 [Full Docker configuration guide →](docs/configuration/docker.md)
@@ -74,13 +74,13 @@ Zero installation required. Perfect for trying out the server.
 ```bash
 # With API key (recommended)
 TP_DOMAIN=your-domain.tpondemand.com TP_API_KEY=your-api-key \
-  npx -y https://github.com/aaronsb/apptio-target-process-mcp.git
+  npx -y https://github.com/msbritt/apptio-targetprocess-mcp.git
 
 # With role-specific tools and strict mode (recommended for MCP clients)
 TP_DOMAIN=your-domain.tpondemand.com TP_USERNAME=your-username TP_PASSWORD=your-password \
 TP_USER_ROLE=developer TP_USER_ID=your-user-id TP_USER_EMAIL=your-email \
 MCP_STRICT_MODE=true \
-  npx -y https://github.com/aaronsb/apptio-target-process-mcp.git
+  npx -y https://github.com/msbritt/apptio-targetprocess-mcp.git
 ```
 
 [Full NPX configuration guide →](docs/configuration/npx.md)
@@ -90,8 +90,8 @@ Clone and run locally for development.
 
 ```bash
 # Clone and setup
-git clone https://github.com/aaronsb/apptio-target-process-mcp.git
-cd apptio-target-process-mcp
+git clone https://github.com/msbritt/apptio-targetprocess-mcp.git
+cd apptio-targetprocess-mcp
 npm install
 
 # Configure
