@@ -306,7 +306,7 @@ export class TargetProcessServer {
       
       // Basic Zod to JSON Schema conversion
       // This is simplified - a full implementation would use zodToJsonSchema library
-      const shape = (zodSchema as any)._def?.shape?.() || {};
+      const shape = (zodSchema as any)._def?.shape || {};
       const properties: any = {};
       const required: string[] = [];
       

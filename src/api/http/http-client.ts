@@ -1,7 +1,7 @@
 import fetch, { Response } from 'node-fetch';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { setTimeout } from 'node:timers/promises';
-import { URLSearchParams } from 'node:url';
+import { URLSearchParams, URL } from 'node:url';
 
 export interface RetryConfig {
   maxRetries: number;
