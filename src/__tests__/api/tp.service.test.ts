@@ -12,13 +12,18 @@ describe('TPService', () => {
   
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new TPService({
-      domain: testConfig.domain,
-      credentials: {
+    const config: any = { domain: testConfig.domain };
+
+    if (testConfig.apiKey) {
+      config.apiKey = testConfig.apiKey;
+    } else {
+      config.credentials = {
         username: testConfig.username,
         password: testConfig.password
-      }
-    });
+      };
+    }
+
+    service = new TPService(config);
   });
 
   describe('constructor', () => {
