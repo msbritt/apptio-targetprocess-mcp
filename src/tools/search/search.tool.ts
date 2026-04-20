@@ -37,7 +37,7 @@ import { searchPresets, applyPresetFilter } from './presets.js';
  */
 
 export const searchToolSchema = z.object({
-  type: z.string().describe('Entity type to search for (e.g., UserStory, Bug, Task, Feature, Epic, Project, Team, etc.)'),
+  type: z.string().min(1, 'Entity type is required').describe('Entity type to search for (e.g., UserStory, Bug, Task, Feature, Epic, Project, Team, etc.)'),
   where: z.string().optional().describe('Filter expression using TargetProcess query language.\n\nPreset filters: searchPresets.open, .notDone, .myOpenTasks, .activeItems, etc.\n\nQuery syntax:\n- Use "eq" for equals: EntityState.Name eq "Open"\n- Use "ne" for not equals: EntityState.Name ne "Done"\n- Use "and"/"or": Priority.Name eq "High" and EntityState.Name ne "Done"\n- Date macros: CreateDate gt @Today\n\nExample: searchPresets.activeItems or "EntityState.Name ne \'Done\'"'),
   include: z.array(z.string()).optional().describe('Related data to include (e.g., Project, Team, AssignedUser)'),
   take: z.number().min(1).max(1000).optional().describe('Number of items to return (default: 100)'),
