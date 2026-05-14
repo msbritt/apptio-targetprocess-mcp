@@ -229,7 +229,7 @@ describe('AddCommentOperation', () => {
       
       // Developer-specific suggestions
       const suggestions = result.suggestions!.join(' ');
-      expect(suggestions).toContain('start-working-on');
+      expect(suggestions).toContain('show-comments');
     });
 
     it('should use tester role formatting and suggestions', async () => {
@@ -365,12 +365,13 @@ describe('AddCommentOperation', () => {
         isPrivate: false
       });
 
-      // Check that createComment was called with HTML
+      // Check that createComment was called with <!--markdown--> prefix and raw markdown
       const commentCall = mockService.createComment.mock.calls[0];
       const htmlContent = commentCall[1];
-      expect(htmlContent).toContain('<strong>Bold</strong>');
-      expect(htmlContent).toContain('<em>italic</em>');
-      expect(htmlContent).toContain('<code>code</code>');
+      expect(htmlContent).toContain('<!--markdown-->');
+      expect(htmlContent).toContain('**Bold**');
+      expect(htmlContent).toContain('*italic*');
+      expect(htmlContent).toContain('`code`');
       expect(htmlContent).toContain('Item 1');
       expect(htmlContent).toContain('Item 2');
     });
@@ -390,8 +391,8 @@ describe('AddCommentOperation', () => {
 
       const commentCall = mockService.createComment.mock.calls[0];
       const htmlContent = commentCall[1];
-      expect(htmlContent).toContain('data-language="javascript"');
-      expect(htmlContent).toContain('<pre><code>');
+      expect(htmlContent).toContain('<!--markdown-->');
+      expect(htmlContent).toContain('```javascript');
     });
 
     it('should handle tables', async () => {
@@ -413,9 +414,9 @@ describe('AddCommentOperation', () => {
 
       const commentCall = mockService.createComment.mock.calls[0];
       const htmlContent = commentCall[1];
-      expect(htmlContent).toContain('<table>');
-      expect(htmlContent).toContain('<th>Header 1</th>');
-      expect(htmlContent).toContain('<td>Cell 1</td>');
+      expect(htmlContent).toContain('<!--markdown-->');
+      expect(htmlContent).toContain('| Header 1 |');
+      expect(htmlContent).toContain('| Cell 1');
     });
   });
 
