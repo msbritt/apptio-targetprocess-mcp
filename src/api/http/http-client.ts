@@ -1,4 +1,3 @@
-import fetch, { Response } from 'node-fetch';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { setTimeout } from 'node:timers/promises';
 import { URLSearchParams, URL } from 'node:url';
@@ -68,7 +67,7 @@ export class HttpClient {
     };
 
     return await this.executeWithRetry(async () => {
-      const response = await fetch(url, requestOptions);
+      const response = await globalThis.fetch(url, requestOptions);
       return await this.handleApiResponse<T>(response, `${options.method || 'GET'} ${endpoint}`);
     }, `${options.method || 'GET'} ${endpoint}`);
   }
@@ -127,11 +126,13 @@ export class HttpClient {
       } catch (error) {
         lastError = error as Error;
 
-        // Don't retry on 400 (bad request) or 401 (unauthorized)
-        if (error instanceof McpError &&
-          (error.message.includes('status: 400') ||
-            error.message.includes('status: 401'))) {
-          throw error;
+        // Don't retry 4xx client errors (message format: "... failed: 4xx - ...")
+        if (error instanceof McpError) {
+          const statusMatch = error.message.match(/: (\d{3})[ -]/);
+          if (statusMatch) {
+            const status = parseInt(statusMatch[1]);
+            if (status >= 400 && status < 500) throw error;
+          }
         }
 
         if (attempt === this.retryConfig.maxRetries) {
@@ -154,7 +155,7 @@ export class HttpClient {
    * Handle API response with error parsing
    */
   async handleApiResponse<T>(
-    response: Response,
+    response: globalThis.Response,
     context: string
   ): Promise<T> {
     if (!response.ok) {
@@ -170,7 +171,7 @@ export class HttpClient {
   /**
    * Extract error message from response
    */
-  private async extractErrorMessage(response: Response): Promise<string> {
+  private async extractErrorMessage(response: globalThis.Response): Promise<string> {
     try {
       const data = await response.json() as ApiErrorResponse;
       return data.Message || data.ErrorMessage || data.Description || response.statusText;
@@ -255,7 +256,7 @@ export class HttpClient {
     }
 
     return await this.executeWithRetry(async () => {
-      const response = await fetch(url, {
+      const response = await globalThis.fetch(url, {
         headers: this.buildHeaders()
       });
 

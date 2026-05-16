@@ -46,6 +46,10 @@ export class TPService {
   private readonly commentService: CommentService;
 
   constructor(config: TPServiceConfig) {
+    if (!isApiKeyConfig(config) && !(config as any).credentials) {
+      throw new Error('Either credentials or apiKey must be provided');
+    }
+
     // Setup authentication configuration
     const authConfig: AuthConfig = isApiKeyConfig(config)
       ? {

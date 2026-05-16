@@ -1,4 +1,3 @@
-import fetch, { Response } from 'node-fetch';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { ApiResponse } from '../client/api.types.js';
 import { EntityValidator } from '../validation/entity-validator.js';
@@ -28,7 +27,7 @@ export interface CreateCommentRequest {
 
 export interface CommentServiceDependencies {
   executeWithRetry: <T>(operation: () => Promise<T>, context: string) => Promise<T>;
-  handleApiResponse: <T>(response: Response, context: string) => Promise<T>;
+  handleApiResponse: <T>(response: globalThis.Response, context: string) => Promise<T>;
   getHeaders: () => Record<string, string>;
   getAuthQueryString: () => string;
   baseUrl: string;
@@ -73,7 +72,7 @@ export class CommentService {
 
       return await this.deps.executeWithRetry(async () => {
         const endpoint = this.deps.entityValidator.getEndpointForEntityType(validatedType);
-        const response = await fetch(this.authUrl(`${endpoint}/${entityId}/Comments`), {
+        const response = await globalThis.fetch(this.authUrl(`${endpoint}/${entityId}/Comments`), {
           headers: this.deps.getHeaders()
         });
 
@@ -135,7 +134,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(this.authUrl('Comments'), {
+        const response = await globalThis.fetch(this.authUrl('Comments'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -170,7 +169,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(this.authUrl(`Comments/${commentId}`), {
+        const response = await globalThis.fetch(this.authUrl(`Comments/${commentId}`), {
           method: 'DELETE',
           headers: this.deps.getHeaders()
         });
@@ -179,7 +178,10 @@ export class CommentService {
           return true;
         } else {
           const errorText = await this.extractErrorMessage(response);
-          throw new Error(`Failed to delete comment ${commentId}: ${response.status} - ${errorText}`);
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Failed to delete comment ${commentId}: ${response.status} - ${errorText}`
+          );
         }
       }, `delete comment ${commentId}`);
     } catch (error) {
@@ -212,7 +214,7 @@ export class CommentService {
       };
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(this.authUrl(`Comments/${commentId}`), {
+        const response = await globalThis.fetch(this.authUrl(`Comments/${commentId}`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -247,7 +249,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(this.authUrl(`Comments/${commentId}`), {
+        const response = await globalThis.fetch(this.authUrl(`Comments/${commentId}`), {
           headers: this.deps.getHeaders()
         });
 
@@ -277,7 +279,7 @@ export class CommentService {
       }
 
       return await this.deps.executeWithRetry(async () => {
-        const response = await fetch(this.authUrl(`Comments/${parentCommentId}/Replies`), {
+        const response = await globalThis.fetch(this.authUrl(`Comments/${parentCommentId}/Replies`), {
           headers: this.deps.getHeaders()
         });
 
@@ -332,12 +334,17 @@ export class CommentService {
   /**
    * Extract error message from response
    */
-  private async extractErrorMessage(response: Response): Promise<string> {
+  private async extractErrorMessage(response: globalThis.Response): Promise<string> {
     try {
       const data = await response.json() as { Message?: string; ErrorMessage?: string; Description?: string };
       return data.Message || data.ErrorMessage || data.Description || response.statusText;
     } catch {
-      return response.statusText;
+      try {
+        const text = await response.text();
+        return text || response.statusText;
+      } catch {
+        return response.statusText;
+      }
     }
   }
 
