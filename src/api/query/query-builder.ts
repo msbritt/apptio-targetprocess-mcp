@@ -3,6 +3,15 @@ import { URLSearchParams } from 'node:url';
 
 type OrderByOption = string | { field: string; direction: 'asc' | 'desc' };
 
+/**
+ * Escape a user-supplied string value for safe use inside a TP TQL quoted literal.
+ * TP represents a literal single quote by doubling it: O'Brien → O''Brien.
+ * Call this before interpolating any user input into a where clause string.
+ */
+export function escapeWhereString(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 export interface QueryOptions {
   where?: string;
   include?: string[];

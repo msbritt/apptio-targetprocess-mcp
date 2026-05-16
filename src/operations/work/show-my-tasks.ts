@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TPService } from '../../api/client/tp.service.js';
+import { escapeWhereString } from '../../api/query/query-builder.js';
 import { ExecutionContext, SemanticOperation, OperationResult } from '../../core/interfaces/semantic-operation.interface.js';
 import { logger } from '../../utils/logger.js';
 
@@ -77,7 +78,7 @@ export class ShowMyTasksOperation implements SemanticOperation<ShowMyTasksParams
 
     // Add project filter if specified
     if (params.projectFilter) {
-      whereConditions.push(`Project.Name contains '${params.projectFilter}'`);
+      whereConditions.push(`Project.Name contains '${escapeWhereString(params.projectFilter)}'`);
     }
 
     // Add priority filter - discover available priorities dynamically

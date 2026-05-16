@@ -1,5 +1,6 @@
 import { SemanticOperation, ExecutionContext } from '../../core/interfaces/semantic-operation.interface.js';
 import { TPService } from '../../api/client/tp.service.js';
+import { escapeWhereString } from '../../api/query/query-builder.js';
 import { logger } from '../../utils/logger.js';
 import { z } from 'zod';
 
@@ -40,7 +41,7 @@ export class SearchWorkItemsOperation implements SemanticOperation<SearchWorkIte
       const results: any[] = [];
 
       // Build where clause using the exact format that works in curl tests
-      let whereClause = `Name contains '${params.query}'`;
+      let whereClause = `Name contains '${escapeWhereString(params.query)}'`;
       if (params.projectId) {
         whereClause = `${whereClause} and Project.Id eq ${params.projectId}`;
       }
