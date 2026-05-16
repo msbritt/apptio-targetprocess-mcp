@@ -23,3 +23,6 @@ config/*.json
 .dolt/
 *.db
 .beads-credential-key
+
+# bv (beads viewer) local config and caches
+.bv/
