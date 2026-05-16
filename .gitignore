@@ -26,3 +26,6 @@ config/*.json
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Local log files
+*.log
