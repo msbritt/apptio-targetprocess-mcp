@@ -216,11 +216,15 @@ export class QueryBuilder {
     // Handle strings
     const strValue = String(value);
 
-    // Remove any existing quotes
+    // Remove any existing outer quotes
     const unquoted = strValue.replace(/^['"]|['"]$/g, '');
 
-    // Escape single quotes by doubling them
-    const escaped = unquoted.replace(/'/g, "''");
+    // Unescape TP-style doubled quotes before re-escaping to avoid double-escaping
+    // (input may already be TP-escaped when it comes from a user-supplied where clause)
+    const unescaped = unquoted.replace(/''/g, "'");
+
+    // Escape single quotes by doubling them per TP API requirements
+    const escaped = unescaped.replace(/'/g, "''");
 
     // Always wrap in single quotes as per TargetProcess API requirements
     return `'${escaped}'`;
@@ -258,11 +262,18 @@ export class QueryBuilder {
       for (let i = 0; i < where.length; i++) {
         const char = where[i];
 
-        if ((char === "'" || char === '"') && where[i - 1] !== '\\') {
+        if (char === "'" || char === '"') {
           if (!inQuote) {
             inQuote = true;
             quoteChar = char;
           } else if (char === quoteChar) {
+            if (quoteChar === "'" && where[i + 1] === "'") {
+              // TP uses doubled single-quotes to escape apostrophes — consume both and stay in quote
+              currentCondition += char;
+              i++;
+              currentCondition += where[i];
+              continue;
+            }
             inQuote = false;
           }
         }
@@ -276,6 +287,11 @@ export class QueryBuilder {
 
         currentCondition += char;
       }
+
+      if (inQuote) {
+        throw new McpError(ErrorCode.InvalidRequest, `Unmatched quote in where clause`);
+      }
+
       conditions.push(currentCondition.trim());
 
       return conditions.map(condition => {
