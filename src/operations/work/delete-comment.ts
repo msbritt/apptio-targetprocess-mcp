@@ -123,7 +123,8 @@ export class DeleteCommentOperation implements SemanticOperation<DeleteCommentPa
               context: commentContext,
               deletedBy: context.user.name,
               deletedAt: new Date().toISOString(),
-              wasOwnComment: commentContext?.User?.Id === context.user.id
+              wasOwnComment: commentContext?.User?.Id === context.user.id ||
+                `${commentContext?.User?.FirstName ?? ''} ${commentContext?.User?.LastName ?? ''}`.trim() === context.user.name
             }
           }
         }
